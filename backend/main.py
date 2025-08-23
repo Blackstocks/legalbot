@@ -49,7 +49,7 @@ llm = ChatOpenAI(model="gpt-3.5-turbo", api_key=os.getenv("OPENAI_API_KEY"))
 # Using a local sentence-transformers model for free embeddings
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-@app.post("/api/uploadfile")
+@app.post("/v1/api/uploadfile")
 async def upload_file(file: UploadFile = File(...)):
     global active_vectorstore
     try:
@@ -107,7 +107,7 @@ async def upload_file(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Failed to process file: {e}")
 
 
-@app.post("/api/chat", response_model=ChatResponse)
+@app.post("/v1/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     global active_vectorstore
     try:
@@ -148,6 +148,6 @@ async def chat(request: ChatRequest):
         print(f"Error processing chat request: {e}")
         return ChatResponse(reply="Sorry, I am currently unable to process your request. Please try again later.")
 
-@app.get("/")
+@app.get("/v1")
 def read_root():
     return {"message": "Backend is running"}

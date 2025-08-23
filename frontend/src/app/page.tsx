@@ -1,10 +1,49 @@
 "use client";
 
-import { useState, FormEvent, useRef, useEffect } from 'react';
+import { useState, FormEvent, useRef, useEffect } from "react";
+import {
+  SignInButton,
+  SignUpButton,
+  SignedIn,
+  SignedOut,
+  UserButton,
+  useUser,
+} from "@clerk/nextjs";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Plus,
+  Paperclip,
+  Send,
+  MessageSquare,
+  FileText,
+  Search,
+  Shield,
+  Sparkles,
+  ArrowRight,
+  Clock,
+  X,
+  Bot,
+  User2,
+  ChevronDown,
+  Zap,
+  Scale,
+  BookOpen,
+  FileSearch,
+  CheckCircle,
+  TrendingUp,
+} from "lucide-react";
+import Image from "next/image";
+import React from "react";
 
 interface Message {
   text: string;
-  sender: 'user' | 'bot';
+  sender: "user" | "bot";
+  timestamp?: Date;
 }
 
 const exampleQuestions = [
@@ -14,82 +53,150 @@ const exampleQuestions = [
   "Can you explain contract law in simple terms?",
 ];
 
+function UserInfo() {
+  const { user } = useUser();
+
+  if (!user) return null;
+
+  return (
+    <div className="space-y-1">
+      <div className="font-medium text-sm text-foreground">
+        {user.fullName || user.firstName || "User"}
+      </div>
+      <div className="text-xs text-muted-foreground">
+        {user.primaryEmailAddress?.emailAddress}
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [showInitialGreeting, setShowInitialGreeting] = useState(true);
+  const [activeChat, setActiveChat] = useState<string | null>(null);
+  const [chatHistory, setChatHistory] = useState<
+    { id: string; title: string; date: string; preview?: string }[]
+  >([]);
+  const [isTyping, setIsTyping] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
-    if (selectedFile && selectedFile.type.startsWith('image/')) {
+    scrollToBottom();
+  }, [messages]);
+
+  useEffect(() => {
+    if (selectedFile && selectedFile.type.startsWith("image/")) {
       const url = URL.createObjectURL(selectedFile);
       setFilePreviewUrl(url);
-      return () => URL.revokeObjectURL(url); // Cleanup
+      return () => URL.revokeObjectURL(url);
     } else {
       setFilePreviewUrl(null);
     }
   }, [selectedFile]);
 
+  const { isSignedIn, user } = useUser();
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!input.trim() && !selectedFile) return; // Don't submit if both are empty
 
-    const userMessage: Message = { text: input, sender: 'user' };
+    if (!isSignedIn) {
+      alert("Please sign in to use the chat feature");
+      return;
+    }
+
+    if (!input.trim() && !selectedFile) return;
+
+    const userMessage: Message = { 
+      text: input, 
+      sender: "user",
+      timestamp: new Date()
+    };
     setMessages((prev) => [...prev, userMessage]);
-    setInput('');
+    setInput("");
     setLoading(true);
+    setIsTyping(true);
     setShowInitialGreeting(false);
 
+    // Add to chat history if new chat
+    if (messages.length === 0) {
+      const newChat = {
+        id: Date.now().toString(),
+        title: input.substring(0, 30) + (input.length > 30 ? '...' : ''),
+        date: new Date().toLocaleDateString(),
+        preview: input.substring(0, 50)
+      };
+      setChatHistory(prev => [newChat, ...prev]);
+      setActiveChat(newChat.id);
+    }
+
     try {
-      // Handle text message submission
       if (input.trim()) {
-        const response = await fetch('http://localhost:8000/api/chat', {
-          method: 'POST',
+        const response = await fetch("http://localhost:8000/v1/api/chat", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({ message: userMessage.text }),
         });
 
         if (!response.ok) {
-          throw new Error('Network response was not ok');
+          throw new Error("Network response was not ok");
         }
 
         const data = await response.json();
-        const botMessage: Message = { text: data.reply, sender: 'bot' };
+        const botMessage: Message = { 
+          text: data.reply, 
+          sender: "bot",
+          timestamp: new Date()
+        };
         setMessages((prev) => [...prev, botMessage]);
       }
 
-      // Handle file upload submission
       if (selectedFile) {
         const formData = new FormData();
-        formData.append('file', selectedFile);
+        formData.append("file", selectedFile);
 
-        const uploadResponse = await fetch('http://localhost:8000/api/uploadfile', {
-          method: 'POST',
-          body: formData,
-        });
+        const uploadResponse = await fetch(
+          "http://localhost:8000/v1/api/uploadfile",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
 
         if (!uploadResponse.ok) {
-          throw new Error('File upload failed');
+          throw new Error("File upload failed");
         }
 
         const uploadData = await uploadResponse.json();
-        const uploadMessage: Message = { text: `File uploaded: ${uploadData.filename}`, sender: 'bot' };
+        const uploadMessage: Message = {
+          text: `✅ File uploaded successfully: ${uploadData.filename}`,
+          sender: "bot",
+          timestamp: new Date()
+        };
         setMessages((prev) => [...prev, uploadMessage]);
-        setSelectedFile(null); // Clear selected file after upload
+        setSelectedFile(null);
       }
-
     } catch (error) {
-      console.error('There was a problem with the operation:', error);
-      const errorMessage: Message = { text: 'Error: Could not process your request.', sender: 'bot' };
+      console.error("There was a problem with the operation:", error);
+      const errorMessage: Message = {
+        text: "⚠️ Error: Could not process your request. Please try again.",
+        sender: "bot",
+        timestamp: new Date()
+      };
       setMessages((prev) => [...prev, errorMessage]);
-    }
-    finally {
+    } finally {
       setLoading(false);
+      setIsTyping(false);
     }
   };
 
@@ -102,412 +209,605 @@ export default function Home() {
   };
 
   const handleExampleClick = async (question: string) => {
+    if (!isSignedIn) {
+      alert("Please sign in to use the chat feature");
+      return;
+    }
+
     setInput(question);
-    // Auto-submit the question
-    const userMessage: Message = { text: question, sender: 'user' };
+    const userMessage: Message = { 
+      text: question, 
+      sender: "user",
+      timestamp: new Date()
+    };
     setMessages((prev) => [...prev, userMessage]);
     setLoading(true);
+    setIsTyping(true);
     setShowInitialGreeting(false);
-    
+
     try {
-      const response = await fetch('http://localhost:8000/api/chat', {
-        method: 'POST',
+      const response = await fetch("http://localhost:8000/v1/api/chat", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ message: question }),
       });
 
       if (!response.ok) {
-        throw new Error('Network response was not ok');
+        throw new Error("Network response was not ok");
       }
 
       const data = await response.json();
-      const botMessage: Message = { text: data.reply, sender: 'bot' };
+      const botMessage: Message = { 
+        text: data.reply, 
+        sender: "bot",
+        timestamp: new Date()
+      };
       setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
-      console.error('There was a problem with the operation:', error);
-      const errorMessage: Message = { text: 'Error: Could not process your request.', sender: 'bot' };
+      console.error("There was a problem with the operation:", error);
+      const errorMessage: Message = {
+        text: "⚠️ Error: Could not process your request. Please try again.",
+        sender: "bot",
+        timestamp: new Date()
+      };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setLoading(false);
+      setIsTyping(false);
     }
   };
 
   const handleNewChat = () => {
     setMessages([]);
-    setInput('');
+    setInput("");
     setSelectedFile(null);
+    setShowInitialGreeting(true);
+    setActiveChat(null);
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Left Sidebar */}
-      <div className="w-72 bg-white border-r border-gray-200 flex flex-col shadow-sm">
-        <div className="px-6 py-5 border-b border-gray-100">
-          <h1 className="text-xl font-semibold text-gray-900">LegalBot</h1>
+    <div className="flex h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
+      {/* Enhanced Left Sidebar */}
+      <div className="w-72 border-r bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl flex flex-col shadow-xl">
+        <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600">
+          <div className="flex items-center gap-2">
+            <Scale className="h-8 w-8 text-white" />
+            <span className="text-2xl font-bold text-white">LegalBot</span>
+          </div>
+          <p className="text-xs text-blue-100 mt-1">AI-Powered Legal Assistant</p>
         </div>
         
-        <div className="px-4 py-3">
-          <button
+        <div className="p-4">
+          <Button
             onClick={handleNewChat}
-            className="w-full flex items-center justify-center gap-2 bg-gray-50 hover:bg-gray-100 text-gray-700 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-200 border border-gray-200 hover:border-gray-300 hover:shadow-sm"
+            className="w-full justify-start gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-                clipRule="evenodd"
-              />
-            </svg>
+            <Plus className="h-4 w-4" />
             New Chat
-          </button>
+            <Sparkles className="h-3 w-3 ml-auto" />
+          </Button>
         </div>
-        
-        {/* Navigation Items */}
-        <div className="flex-1 px-4 py-2 overflow-y-auto">
-          <div className="space-y-1">
-            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 py-2 mt-2">My Tools</div>
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors group">
-              <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center group-hover:bg-gray-200 transition-colors">
-                <svg className="w-4 h-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
-                  <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"/>
-                </svg>
-              </div>
-              AI Chat
-            </button>
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors group">
-              <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center group-hover:bg-gray-200 transition-colors">
-                <svg className="w-4 h-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
-                  <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"/>
-                </svg>
-              </div>
-              GPT-4o
-            </button>
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors group">
-              <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center group-hover:bg-gray-200 transition-colors">
-                <svg className="w-4 h-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
-                  <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"/>
-                </svg>
-              </div>
-              GPT-5
-            </button>
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors group">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-purple-400 flex items-center justify-center group-hover:shadow-md transition-all">
-                <svg className="w-4 h-4 text-white" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd"/>
-                </svg>
-              </div>
-              Gemini
-            </button>
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors group">
-              <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center group-hover:bg-orange-200 transition-colors">
-                <svg className="w-4 h-4 text-orange-600" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd"/>
-                </svg>
-              </div>
-              Claude
-            </button>
+
+        {/* Enhanced Chat History */}
+        <ScrollArea className="flex-1 px-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Recent Chats
+            </h3>
+            <Clock className="h-3 w-3 text-muted-foreground" />
           </div>
-          
-          <div className="mt-6 pt-6 border-t border-gray-100">
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-              <svg className="w-4 h-4 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd"/>
-              </svg>
-              Chats
-            </button>
-          </div>
-        </div>
-        
-        {/* Bottom section */}
-        <div className="border-t border-gray-200">
-          <div className="px-4 py-4">
-            <div className="text-center text-xs text-gray-400 font-medium mb-4 bg-gray-50 py-2 rounded-lg">No Chat History</div>
-            <div className="space-y-1 mb-4">
-              <button className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
-                <svg className="w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd"/>
-                </svg>
-                Help & FAQ
-              </button>
-              <button className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
-                <svg className="w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M5 4a3 3 0 00-3 3v6a3 3 0 003 3h10a3 3 0 003-3V7a3 3 0 00-3-3H5zm-1 9v-1h5v2H5a1 1 0 01-1-1zm7 1h4a1 1 0 001-1v-1h-5v2zm0-4h5V8h-5v2zM9 8H4v2h5V8z" clipRule="evenodd"/>
-                </svg>
-                Explore Tools
-              </button>
-              <button className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
-                <svg className="w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 2a1 1 0 00-1 1v1a1 1 0 002 0V3a1 1 0 00-1-1zM4 4h3a3 3 0 006 0h3a2 2 0 012 2v9a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2zm2.5 7a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm2.45 4a2.5 2.5 0 10-4.9 0h4.9zM12 9a1 1 0 100 2h3a1 1 0 100-2h-3zm-1 4a1 1 0 011-1h2a1 1 0 110 2h-2a1 1 0 01-1-1z" clipRule="evenodd"/>
-                </svg>
-                Go Pro
-              </button>
+          {chatHistory.length === 0 ? (
+            <div className="text-center py-8 px-4">
+              <MessageSquare className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">
+                No chat history yet
+              </p>
+              <p className="text-xs text-muted-foreground/70 mt-1">
+                Start a conversation to see it here
+              </p>
             </div>
+          ) : (
+            <div className="space-y-2">
+              {chatHistory.map((chat) => (
+                <button
+                  key={chat.id}
+                  onClick={() => setActiveChat(chat.id)}
+                  className={`w-full text-left px-3 py-3 rounded-lg transition-all duration-200 group ${
+                    activeChat === chat.id
+                      ? "bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800"
+                      : "hover:bg-slate-100 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    <MessageSquare className={`h-4 w-4 mt-0.5 ${
+                      activeChat === chat.id 
+                        ? "text-blue-600" 
+                        : "text-muted-foreground group-hover:text-blue-600"
+                    }`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate text-sm">{chat.title}</div>
+                      {chat.preview && (
+                        <div className="text-xs text-muted-foreground truncate mt-1">
+                          {chat.preview}
+                        </div>
+                      )}
+                      <div className="text-xs text-muted-foreground/70 mt-1">{chat.date}</div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+
+        <Separator />
+
+        {/* Enhanced Tools Section */}
+        <div className="p-4">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            Quick Tools
           </div>
-          <div className="px-4 pb-4 space-y-2">
-            <button className="w-full bg-gray-900 text-white py-2.5 px-4 rounded-lg text-sm font-medium hover:bg-gray-800 transition-all duration-200 hover:shadow-md">Login</button>
-            <button className="w-full text-gray-600 py-2.5 px-4 text-sm hover:text-gray-900 font-medium transition-colors">Sign up</button>
+          <div className="space-y-1">
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-sm group hover:bg-blue-50 dark:hover:bg-blue-900/20"
+              size="sm"
+            >
+              <FileSearch className="h-4 w-4 mr-2 text-blue-600" />
+              Document Analysis
+              <ArrowRight className="h-3 w-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-sm group hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+              size="sm"
+            >
+              <BookOpen className="h-4 w-4 mr-2 text-emerald-600" />
+              Legal Research
+              <ArrowRight className="h-3 w-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-sm group hover:bg-purple-50 dark:hover:bg-purple-900/20"
+              size="sm"
+            >
+              <Shield className="h-4 w-4 mr-2 text-purple-600" />
+              Contract Review
+              <ArrowRight className="h-3 w-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+            </Button>
           </div>
+        </div>
+
+        <Separator />
+
+        {/* Enhanced User Section */}
+        <div className="p-4 bg-slate-50 dark:bg-slate-800/50">
+          <SignedOut>
+            <div className="space-y-2">
+              <SignInButton mode="modal">
+                <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700" size="sm">
+                  <User2 className="h-4 w-4 mr-2" />
+                  Login
+                </Button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <Button variant="outline" className="w-full border-blue-200 hover:bg-blue-50" size="sm">
+                  Sign up for free
+                </Button>
+              </SignUpButton>
+            </div>
+          </SignedOut>
+          <SignedIn>
+            <div className="flex items-center gap-3">
+              <UserButton 
+                afterSignOutUrl="/" 
+                appearance={{
+                  elements: {
+                    avatarBox: "h-10 w-10"
+                  }
+                }}
+              />
+              <div className="flex-1">
+                <UserInfo />
+              </div>
+            </div>
+          </SignedIn>
         </div>
       </div>
 
-      {/* Right Main Content */}
-      <div className="flex-1 flex flex-col bg-white">
+      {/* Enhanced Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Enhanced Header */}
+        <div className="px-6 py-4 border-b bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <SignedIn>
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm text-muted-foreground">
+                    AI Assistant Online
+                  </span>
+                </div>
+              </SignedIn>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" className="text-xs">
+                <Zap className="h-3 w-3 mr-1" />
+                Pro Features
+              </Button>
+            </div>
+          </div>
+        </div>
 
-        <main className="flex-1 overflow-y-auto flex flex-col">
+        <main className="flex-1 overflow-y-auto flex flex-col bg-gradient-to-b from-transparent to-slate-50/50 dark:to-slate-900/50">
           <div className="flex-1 max-w-4xl w-full mx-auto px-4 py-8">
             {showInitialGreeting && messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-                {/* Sun icon */}
+              <div className="flex flex-col items-center justify-center min-h-[60vh] text-center animate-fadeIn">
+                {/* Enhanced Hero Section */}
                 <div className="mb-8">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-100 to-orange-100 flex items-center justify-center">
-                    <svg className="w-12 h-12 text-orange-400" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="12" cy="12" r="5" stroke="currentColor" strokeWidth="2"/>
-                      <path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 blur-3xl opacity-20"></div>
+                    <Card className="relative px-12 py-8 border-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-2xl">
+                      <Scale className="h-16 w-16 mx-auto mb-4" />
+                      <h1 className="text-5xl font-bold mb-2">
+                        LegalBot AI
+                      </h1>
+                      <p className="text-blue-100">Your Intelligent Legal Assistant</p>
+                    </Card>
                   </div>
                 </div>
-                <h2 className="text-3xl font-light mb-3 text-gray-800">Welcome to LegalBot</h2>
-                <p className="text-lg mb-12 text-gray-500">Your AI-powered legal assistant.</p>
+
+                <SignedOut>
+                  <div className="mb-8 animate-slideUp">
+                    <p className="text-lg text-muted-foreground mb-2">
+                      Get instant legal guidance powered by AI
+                    </p>
+                    <p className="text-sm text-muted-foreground/70 mb-6">
+                      Sign in to access personalized legal assistance
+                    </p>
+                    <div className="flex gap-4 justify-center">
+                      <SignInButton mode="modal">
+                        <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 px-8 py-6 text-lg shadow-xl">
+                          Get Started
+                          <ArrowRight className="ml-2 h-5 w-5" />
+                        </Button>
+                      </SignInButton>
+                      <SignUpButton mode="modal">
+                        <Button
+                          variant="outline"
+                          className="border-2 border-blue-200 hover:bg-blue-50 px-8 py-6 text-lg"
+                        >
+                          Create Free Account
+                        </Button>
+                      </SignUpButton>
+                    </div>
+                  </div>
+                </SignedOut>
+
+                <SignedIn>
+                  {/* Enhanced Service Cards */}
+                  <div className="w-full max-w-6xl">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-6 flex items-center justify-center gap-2">
+                      <Sparkles className="h-4 w-4" />
+                      How can I help you today?
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Column 1 */}
+                      <div className="space-y-3">
+                        <Card 
+                          onClick={() => handleExampleClick("I need legal consultation for my business")}
+                          className="group cursor-pointer border-2 hover:border-blue-500 transition-all duration-300 hover:shadow-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10"
+                        >
+                          <div className="p-4">
+                            <div className="flex items-start space-x-3">
+                              <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg">
+                                <Scale className="h-5 w-5 text-white" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                                  Legal Consultation
+                                  <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-all" />
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Expert business legal advice
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                        <Card 
+                          onClick={() => handleExampleClick("Can you review this document for me?")}
+                          className="group cursor-pointer border-2 hover:border-emerald-500 transition-all duration-300 hover:shadow-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/10 dark:to-teal-900/10"
+                        >
+                          <div className="p-4">
+                            <div className="flex items-start space-x-3">
+                              <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center shadow-lg">
+                                <FileText className="h-5 w-5 text-white" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                                  Document Review
+                                  <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-all" />
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Professional document analysis
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                      </div>
+
+                      {/* Column 2 */}
+                      <div className="space-y-3">
+                        <Card 
+                          onClick={() => handleExampleClick("Analyze this contract for potential issues")}
+                          className="group cursor-pointer border-2 hover:border-purple-500 transition-all duration-300 hover:shadow-xl bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/10 dark:to-violet-900/10"
+                        >
+                          <div className="p-4">
+                            <div className="flex items-start space-x-3">
+                              <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
+                                <Search className="h-5 w-5 text-white" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                                  Contract Analysis
+                                  <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-all" />
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Detailed contract examination
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                        <Card 
+                          onClick={() => handleExampleClick("Help me with legal research on intellectual property")}
+                          className="group cursor-pointer border-2 hover:border-orange-500 transition-all duration-300 hover:shadow-xl bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/10 dark:to-amber-900/10"
+                        >
+                          <div className="p-4">
+                            <div className="flex items-start space-x-3">
+                              <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center shadow-lg">
+                                <BookOpen className="h-5 w-5 text-white" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                                  Legal Research
+                                  <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-all" />
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Comprehensive legal investigation
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                      </div>
+
+                      {/* Column 3 */}
+                      <div className="space-y-3">
+                        <Card 
+                          onClick={() => handleExampleClick("Check my business for regulatory compliance")}
+                          className="group cursor-pointer border-2 hover:border-cyan-500 transition-all duration-300 hover:shadow-xl bg-gradient-to-br from-cyan-50 to-sky-50 dark:from-cyan-900/10 dark:to-sky-900/10"
+                        >
+                          <div className="p-4">
+                            <div className="flex items-start space-x-3">
+                              <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-r from-cyan-500 to-cyan-600 rounded-lg flex items-center justify-center shadow-lg">
+                                <Shield className="h-5 w-5 text-white" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                                  Compliance Check
+                                  <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-all" />
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Regulatory compliance audit
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                        <Card 
+                          onClick={() => handleExampleClick("Summarize this legal case for me")}
+                          className="group cursor-pointer border-2 hover:border-rose-500 transition-all duration-300 hover:shadow-xl bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-900/10 dark:to-pink-900/10"
+                        >
+                          <div className="p-4">
+                            <div className="flex items-start space-x-3">
+                              <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-r from-rose-500 to-rose-600 rounded-lg flex items-center justify-center shadow-lg">
+                                <CheckCircle className="h-5 w-5 text-white" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                                  Case Summary
+                                  <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-all" />
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Legal case analysis & summary
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                      </div>
+                    </div>
+
+                    
+                  </div>
+                </SignedIn>
               </div>
             ) : (
-              <div className="space-y-6 py-8">
+              <div className="space-y-4 py-4">
                 {messages.map((msg, index) => (
                   <div
                     key={index}
                     className={`flex ${
-                      msg.sender === 'user' ? 'justify-end' : 'justify-start'
-                    }`}
+                      msg.sender === "user" ? "justify-end" : "justify-start"
+                    } animate-fadeIn`}
                   >
-                    <div className={`flex gap-3 max-w-[85%] ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
-                      {msg.sender === 'bot' && (
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
-                          <svg className="w-4 h-4 text-white" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd"/>
-                          </svg>
-                        </div>
-                      )}
-                      <div
-                        className={`px-4 py-3 rounded-2xl ${
-                          msg.sender === 'user'
-                            ? 'bg-gray-900 text-white'
-                            : 'bg-white border border-gray-200 text-gray-800 shadow-sm'
-                        }`}
-                      >
-                        <p className="text-sm leading-relaxed">{msg.text}</p>
+                    <div
+                      className={`flex gap-3 max-w-[85%] ${
+                        msg.sender === "user" ? "flex-row-reverse" : ""
+                      }`}
+                    >
+                      <Avatar className="h-9 w-9 shadow-md">
+                        {msg.sender === "bot" ? (
+                          <AvatarFallback className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                            <Bot className="h-5 w-5" />
+                          </AvatarFallback>
+                        ) : (
+                          <AvatarFallback className="bg-gradient-to-r from-slate-600 to-slate-700 text-white">
+                            <User2 className="h-5 w-5" />
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                      <div>
+                        <Card
+                          className={`px-4 py-3 shadow-lg ${
+                            msg.sender === "user"
+                              ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-0"
+                              : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                          }`}
+                        >
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                        </Card>
+                        {msg.timestamp && (
+                          <p className="text-xs text-muted-foreground mt-1 px-1">
+                            {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
                 ))}
-              </div>
-            )}
-            {loading && (
-              <div className="flex justify-start py-4">
-                <div className="flex gap-3 max-w-[85%]" >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
-                    <svg className="w-4 h-4 text-white" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd"/>
-                    </svg>
-                  </div>
-                  <div className="px-4 py-3 rounded-2xl bg-white border border-gray-200 shadow-sm">
-                    <div className="flex items-center space-x-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '150ms' }}></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '300ms' }}></div>
+                {isTyping && (
+                  <div className="flex justify-start animate-fadeIn">
+                    <div className="flex gap-3 max-w-[85%]">
+                      <Avatar className="h-9 w-9 shadow-md">
+                        <AvatarFallback className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                          <Bot className="h-5 w-5" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <Card className="px-4 py-3 bg-white dark:bg-slate-800 shadow-lg">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></div>
+                          <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></div>
+                          <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></div>
+                        </div>
+                      </Card>
                     </div>
                   </div>
-                </div>
+                )}
+                <div ref={messagesEndRef} />
               </div>
             )}
           </div>
         </main>
 
-        <footer className="border-t border-gray-200 p-4">
-          {/* Quick action buttons and model selection */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex gap-2">
-                <button className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-md flex items-center gap-2">
-                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
-                  </svg>
-                  Draft a contract
-                </button>
-                <button className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-md flex items-center gap-2">
-                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z"/>
-                  </svg>
-                  Summarize a case
-                </button>
-                <button className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-md flex items-center gap-2">
-                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"/>
-                  </svg>
-                  Legal research
-                </button>
-                <button className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-md flex items-center gap-2">
-                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"/>
-                  </svg>
-                  Check compliance
-                </button>
-                <button className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-md flex items-center gap-2">
-                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd"/>
-                  </svg>
-                  Ask a question
-                </button>
-              </div>
-              <a href="#" className="text-green-600 text-sm hover:underline flex items-center gap-1">
-                <span className="inline-block w-2 h-2 bg-green-600 rounded-full"></span>
-                Available Models
-              </a>
-            </div>
-            
-            {/* Model carousel */}
-            <div className="flex items-center gap-2">
-              <button className="p-1 hover:bg-gray-100 rounded">
-                <svg className="w-5 h-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd"/>
-                </svg>
-              </button>
-              <div className="flex gap-2 overflow-hidden flex-1">
-                <div className="bg-gray-100 rounded-lg p-3 min-w-[200px]">
-                  <div className="flex items-center gap-2 mb-1">
-                    <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
-                      <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"/>
-                    </svg>
-                    <span className="font-medium text-sm">OpenAI GPT-4o mini</span>
-                  </div>
-                  <p className="text-xs text-gray-600">GPT-4o mini, developed by OpenAI, stands as o...</p>
-                </div>
-                <div className="bg-gray-100 rounded-lg p-3 min-w-[200px]">
-                  <div className="flex items-center gap-2 mb-1">
-                    <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
-                      <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"/>
-                    </svg>
-                    <span className="font-medium text-sm">OpenAI GPT-4o</span>
-                  </div>
-                  <p className="text-xs text-gray-600">GPT-4o, OpenAI's newest flagship model, is...</p>
-                </div>
-                <div className="border-2 border-gray-300 rounded-lg p-3 min-w-[200px] bg-white">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
-                        <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"/>
-                      </svg>
-                      <span className="font-medium text-sm">OpenAI GPT-5</span>
-                    </div>
-                    <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">Selected</span>
-                  </div>
-                  <p className="text-xs text-gray-600">OpenAI's GPT-5 sets a new standard in...</p>
-                </div>
-              </div>
-              <button className="p-1 hover:bg-gray-100 rounded">
-                <svg className="w-5 h-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-          
+        {/* Enhanced Footer */}
+        <footer className="border-t bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-4">
           {selectedFile && (
-            <div className="text-sm text-gray-600 mb-2 flex items-center justify-between p-2 border border-gray-300 rounded-lg bg-gray-50">
-              <div className="flex items-center space-x-2">
+            <div className="mb-3 animate-slideUp">
+              <div className="inline-flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                 {filePreviewUrl ? (
-                  <img src={filePreviewUrl} alt="File Preview" className="h-10 w-10 object-cover rounded-md" />
-                ) : selectedFile.type === 'application/pdf' ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-500" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L14.414 5A2 2 0 0115 6.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h7V6.414L12.414 4H6zM10 8a1 1 0 011 1v3a1 1 0 11-2 0V9a1 1 0 011-1z" clipRule="evenodd" />
-                  </svg>
+                  <img
+                    src={filePreviewUrl}
+                    alt="File Preview"
+                    className="h-8 w-8 object-cover rounded"
+                  />
                 ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L14.414 5A2 2 0 0115 6.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h7V6.414L12.414 4H6z" clipRule="evenodd" />
-                  </svg>
+                  <FileText className="h-5 w-5 text-blue-600" />
                 )}
-                <span>{selectedFile.name}</span>
+                <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                  {selectedFile.name}
+                </span>
+                <Button
+                  type="button"
+                  onClick={() => setSelectedFile(null)}
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 ml-2 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedFile(null)}
-                className="ml-2 text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-100"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
             </div>
           )}
-          <form onSubmit={handleSubmit} className="flex items-center gap-2">
+          <form onSubmit={handleSubmit} className="flex items-center gap-3">
+            <Button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              variant="outline"
+              size="icon"
+              className="hover:bg-blue-50 dark:hover:bg-blue-900/20 border-slate-300"
+              title="Attach File"
+            >
+              <Paperclip className="h-5 w-5" />
+            </Button>
             <input
               type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
               className="hidden"
+              accept=".pdf,.doc,.docx,.txt,image/*"
             />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="p-2.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors duration-200"
-              title="Upload File"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13.5" />
-              </svg>
-            </button>
             <div className="flex-1 relative">
-              <input
+              <Input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 pr-20 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
-                placeholder="Ask a legal question..."
-                disabled={loading || selectedFile !== null}
+                className="w-full pr-12 py-6 text-base border-2 focus:border-blue-500 transition-colors"
+                placeholder="Ask me anything about legal matters..."
+                disabled={loading}
               />
-              <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
-                <button
-                  type="button"
-                  className="p-1.5 hover:bg-gray-100 rounded-md text-gray-500"
-                  title="Create an image"
+              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                <Button
+                  type="submit"
+                  disabled={loading || (!input.trim() && !selectedFile)}
+                  size="icon"
+                  className="rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 shadow-lg"
                 >
-                  <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"/>
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  className="p-1.5 hover:bg-gray-100 rounded-md text-gray-500"
-                  title="Search the web"
-                >
-                  <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v2.197A5.973 5.973 0 0110 16v-2a2 2 0 00-2-2 2 2 0 01-2-2 2 2 0 00-1.668-1.973z" clipRule="evenodd"/>
-                  </svg>
-                </button>
+                  <Send className="h-4 w-4" />
+                </Button>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500">GPT-5</span>
-              <button className="p-1 hover:bg-gray-100 rounded">
-                <svg className="w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/>
-                </svg>
-              </button>
-            </div>
           </form>
+          
         </footer>
       </div>
+
+      <style jsx>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+
+        .animate-slideUp {
+          animation: slideUp 0.4s ease-out;
+        }
+      `}</style>
     </div>
   );
 }
