@@ -16,6 +16,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Plus,
   Paperclip,
   Send,
@@ -36,6 +44,8 @@ import {
   FileSearch,
   CheckCircle,
   TrendingUp,
+  Upload,
+  FileUp,
 } from "lucide-react";
 import Image from "next/image";
 import React from "react";
@@ -87,7 +97,11 @@ export default function Home() {
   >([]);
   const [isTyping, setIsTyping] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [isDocumentAnalysisMode, setIsDocumentAnalysisMode] = useState(false);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const modalFileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -214,7 +228,7 @@ export default function Home() {
     }
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     setFileError(null); // Clear any previous errors
     
     if (event.target.files && event.target.files.length > 0) {
@@ -307,6 +321,69 @@ export default function Home() {
     setSelectedFile(null);
     setShowInitialGreeting(true);
     setActiveChat(null);
+    setIsDocumentAnalysisMode(false);
+  };
+
+  const handleDocumentAnalysisClick = () => {
+    if (!isSignedIn) {
+      alert("Please sign in to use the document analysis feature");
+      return;
+    }
+    setShowDocumentModal(true);
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      handleModalFileSelect(file);
+    }
+  };
+
+  const handleModalFileSelect = (file: File) => {
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    if (fileExtension !== 'pdf') {
+      setFileError('Only PDF files are supported. Please upload a PDF file.');
+      return;
+    }
+    
+    const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB in bytes
+    if (file.size > MAX_FILE_SIZE) {
+      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      setFileError(`File size exceeds maximum allowed size of 1MB. Your file is ${fileSizeMB}MB`);
+      return;
+    }
+    
+    setSelectedFile(file);
+    setFileError(null);
+    setShowDocumentModal(false);
+    setIsDocumentAnalysisMode(true);
+    setShowInitialGreeting(false);
+    
+    // Send initial message for document analysis
+    const initialMessage = `Please analyze this PDF document: ${file.name}. Provide a comprehensive summary of its contents, key points, and any important information.`;
+    setInput(initialMessage);
+    
+    // Trigger form submission after state updates
+    setTimeout(() => {
+      const form = document.querySelector('form');
+      if (form) {
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      }
+    }, 100);
   };
 
   return (
@@ -396,6 +473,7 @@ export default function Home() {
               variant="ghost"
               className="w-full justify-start text-sm group hover:bg-blue-50 dark:hover:bg-blue-900/20"
               size="sm"
+              onClick={handleDocumentAnalysisClick}
             >
               <FileSearch className="h-4 w-4 mr-2 text-blue-600" />
               Document Analysis
@@ -836,6 +914,113 @@ export default function Home() {
           
         </footer>
       </div>
+
+      {/* Document Analysis Modal */}
+      <Dialog open={showDocumentModal} onOpenChange={setShowDocumentModal}>
+        <DialogContent className="max-w-2xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-2xl">
+              <FileSearch className="h-6 w-6 text-blue-600" />
+              Document Analysis
+            </DialogTitle>
+            <DialogDescription className="text-base mt-2">
+              Upload a PDF document to get AI-powered analysis, summaries, and insights.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Features list */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-start gap-2">
+                <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
+                <div>
+                  <p className="font-medium">Smart Summarization</p>
+                  <p className="text-sm text-muted-foreground">Get concise summaries of lengthy documents</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
+                <div>
+                  <p className="font-medium">Key Points Extraction</p>
+                  <p className="text-sm text-muted-foreground">Identify important information instantly</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
+                <div>
+                  <p className="font-medium">Legal Context</p>
+                  <p className="text-sm text-muted-foreground">Understand legal implications and terms</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
+                <div>
+                  <p className="font-medium">Q&A Support</p>
+                  <p className="text-sm text-muted-foreground">Ask questions about your document</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Upload area */}
+            <div
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                dragActive
+                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                  : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 bg-gray-50 dark:bg-slate-800"
+              }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
+              <FileUp className="h-12 w-12 mx-auto mb-4 text-gray-400 dark:text-gray-500" />
+              <p className="text-lg font-medium mb-2 text-gray-900 dark:text-gray-100">
+                Drop your PDF here or click to browse
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Maximum file size: 1MB
+              </p>
+              <input
+                type="file"
+                ref={modalFileInputRef}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleModalFileSelect(e.target.files[0]);
+                  }
+                }}
+                className="hidden"
+                accept=".pdf,application/pdf"
+              />
+              <Button
+                onClick={() => modalFileInputRef.current?.click()}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Select PDF File
+              </Button>
+            </div>
+
+            {fileError && (
+              <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                <X className="h-4 w-4 text-red-600" />
+                <p className="text-sm text-red-600 dark:text-red-400">{fileError}</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDocumentModal(false);
+                setFileError(null);
+              }}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <style jsx>{`
         @keyframes fadeIn {

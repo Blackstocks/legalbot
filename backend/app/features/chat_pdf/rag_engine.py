@@ -2,9 +2,9 @@ import os
 from typing import List, Dict, Any, Optional
 from openai import OpenAI
 from dotenv import load_dotenv
-from milvus_client import MilvusManager
-from document_processor import DocumentProcessor
-from embeddings import EmbeddingGenerator
+from app.core.milvus_client import MilvusManager
+from app.features.chat_pdf.document_processor import DocumentProcessor
+from app.core.embeddings import EmbeddingGenerator
 
 load_dotenv()
 
