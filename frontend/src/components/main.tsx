@@ -2,8 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { FileText } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 const EnhancedLegalbotUI = () => {
+  const router = useRouter();
   const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
   const [isHovering, setIsHovering] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -117,6 +120,19 @@ const EnhancedLegalbotUI = () => {
                     </p>
                   </Card>
                 </div>
+              </div>
+
+              {/* Chat with PDF Button */}
+              <div className="mb-8">
+                <Button
+                  onClick={() => router.push('/chat-pdf')}
+                  className="bg-white text-black hover:bg-white/90 px-8 py-4 rounded-xl font-medium transition-all duration-300 hover:scale-105 flex items-center gap-3"
+                  onMouseEnter={() => setIsHovering(true)}
+                  onMouseLeave={() => setIsHovering(false)}
+                >
+                  <FileText className="h-5 w-5" />
+                  Chat with Your Documents
+                </Button>
               </div>
 
               {/* Auth Section - Signed Out State */}

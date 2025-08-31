@@ -44,6 +44,10 @@ interface Message {
   text: string;
   sender: "user" | "bot";
   timestamp?: Date;
+  file?: {
+    name: string;
+    type: string;
+  };
 }
 
 const exampleQuestions = [
@@ -82,6 +86,7 @@ export default function Home() {
     { id: string; title: string; date: string; preview?: string }[]
   >([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -118,7 +123,11 @@ export default function Home() {
     const userMessage: Message = { 
       text: input, 
       sender: "user",
-      timestamp: new Date()
+      timestamp: new Date(),
+      file: selectedFile ? {
+        name: selectedFile.name,
+        type: selectedFile.type
+      } : undefined
     };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
@@ -174,6 +183,10 @@ export default function Home() {
         );
 
         if (!uploadResponse.ok) {
+          if (uploadResponse.status === 413) {
+            const errorData = await uploadResponse.json();
+            throw new Error(errorData.detail || 'File size exceeds maximum allowed size');
+          }
           throw new Error("File upload failed");
         }
 
@@ -185,6 +198,7 @@ export default function Home() {
         };
         setMessages((prev) => [...prev, uploadMessage]);
         setSelectedFile(null);
+        setFileError(null);
       }
     } catch (error) {
       console.error("There was a problem with the operation:", error);
@@ -201,10 +215,38 @@ export default function Home() {
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setFileError(null); // Clear any previous errors
+    
     if (event.target.files && event.target.files.length > 0) {
-      setSelectedFile(event.target.files[0]);
+      const file = event.target.files[0];
+      
+      // Check file type - only PDF allowed
+      const fileExtension = file.name.split('.').pop()?.toLowerCase();
+      if (fileExtension !== 'pdf') {
+        setFileError('Only PDF files are supported. Please upload a PDF file.');
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        return;
+      }
+      
+      // Check file size - max 1MB
+      const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB in bytes
+      if (file.size > MAX_FILE_SIZE) {
+        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        setFileError(`File size exceeds maximum allowed size of 1MB. Your file is ${fileSizeMB}MB`);
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        return;
+      }
+      
+      setSelectedFile(file);
     } else {
       setSelectedFile(null);
+      setFileError(null);
     }
   };
 
@@ -420,26 +462,7 @@ export default function Home() {
       {/* Enhanced Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Enhanced Header */}
-        <div className="px-6 py-4 border-b bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <SignedIn>
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-sm text-muted-foreground">
-                    AI Assistant Online
-                  </span>
-                </div>
-              </SignedIn>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" className="text-xs">
-                <Zap className="h-3 w-3 mr-1" />
-                Pro Features
-              </Button>
-            </div>
-          </div>
-        </div>
+
 
         <main className="flex-1 overflow-y-auto flex flex-col bg-gradient-to-b from-transparent to-slate-50/50 dark:to-slate-900/50">
           <div className="flex-1 max-w-4xl w-full mx-auto px-4 py-8">
@@ -670,6 +693,22 @@ export default function Home() {
                               : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
                           }`}
                         >
+                          {msg.file && (
+                            <div className={`mb-2 p-2 rounded-lg flex items-center gap-2 ${
+                              msg.sender === "user" 
+                                ? "bg-white/20" 
+                                : "bg-slate-100 dark:bg-slate-700"
+                            }`}>
+                              <FileText className={`h-4 w-4 ${
+                                msg.sender === "user" ? "text-white" : "text-blue-600 dark:text-blue-400"
+                              }`} />
+                              <span className={`text-xs font-medium ${
+                                msg.sender === "user" ? "text-white" : "text-slate-700 dark:text-slate-300"
+                              }`}>
+                                {msg.file.name}
+                              </span>
+                            </div>
+                          )}
                           <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
                         </Card>
                         {msg.timestamp && (
@@ -724,12 +763,33 @@ export default function Home() {
                 </span>
                 <Button
                   type="button"
-                  onClick={() => setSelectedFile(null)}
+                  onClick={() => {
+                    setSelectedFile(null);
+                    setFileError(null);
+                  }}
                   variant="ghost"
                   size="sm"
                   className="h-6 w-6 p-0 ml-2 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full"
                 >
                   <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+          {fileError && (
+            <div className="mb-3 animate-slideUp">
+              <div className="inline-flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                <span className="text-sm font-medium text-red-600 dark:text-red-400">
+                  {fileError}
+                </span>
+                <Button
+                  type="button"
+                  onClick={() => setFileError(null)}
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 ml-2 hover:bg-red-200 dark:hover:bg-red-800 rounded-full"
+                >
+                  <X className="h-4 w-4 text-red-600 dark:text-red-400" />
                 </Button>
               </div>
             </div>
@@ -750,7 +810,7 @@ export default function Home() {
               ref={fileInputRef}
               onChange={handleFileChange}
               className="hidden"
-              accept=".pdf,.doc,.docx,.txt,image/*"
+              accept=".pdf,application/pdf"
             />
             <div className="flex-1 relative">
               <Input
