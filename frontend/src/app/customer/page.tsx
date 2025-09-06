@@ -87,12 +87,8 @@ function UserInfo() {
   );
 }
 
-export default function Home() {
+export default function CustomerPage() {
   const router = useRouter();
-
-  useEffect(() => {
-    router.push('/customer');
-  }, [router]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -108,7 +104,6 @@ export default function Home() {
   const [isDocumentAnalysisMode, setIsDocumentAnalysisMode] = useState(false);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const [userType, setUserType] = useState<"customer" | "lawyer">("customer");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalFileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -556,23 +551,14 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
               <button
-                onClick={() => router.push("/customer")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  userType === "customer"
-                    ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-md"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-                }`}
+                className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-md"
               >
                 <Users className="h-4 w-4" />
                 Customer
               </button>
               <button
                 onClick={() => router.push("/lawyer")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  userType === "lawyer"
-                    ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-md"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-                }`}
+                className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
               >
                 <Briefcase className="h-4 w-4" />
                 Lawyer
@@ -595,11 +581,7 @@ export default function Home() {
                       <h1 className="text-5xl font-bold mb-2">
                         LegalBot AI
                       </h1>
-                      <p className="text-blue-100">
-                        {userType === "lawyer" 
-                          ? "Professional Legal Platform" 
-                          : "Your Intelligent Legal Assistant"}
-                      </p>
+                      <p className="text-blue-100">Your Intelligent Legal Assistant</p>
                     </Card>
                   </div>
                 </div>
@@ -632,43 +614,12 @@ export default function Home() {
                 </SignedOut>
 
                 <SignedIn>
-                  {userType === "lawyer" ? (
-                    <div className="w-full max-w-4xl text-center animate-fadeIn">
-                      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 p-8 rounded-2xl border border-indigo-200 dark:border-indigo-800">
-                        <Briefcase className="h-12 w-12 text-indigo-600 mx-auto mb-4" />
-                        <h2 className="text-3xl font-bold mb-2">
-                          Welcome, {user?.fullName || user?.firstName || "Legal Professional"}
-                        </h2>
-                        <p className="text-lg text-muted-foreground mb-6">
-                          Access your professional legal workspace and advanced tools
-                        </p>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-                          <Card className="p-6 hover:shadow-xl transition-shadow cursor-pointer border-2 hover:border-indigo-500">
-                            <FileSearch className="h-8 w-8 text-indigo-600 mb-3" />
-                            <h3 className="font-semibold mb-2">Case Management</h3>
-                            <p className="text-sm text-muted-foreground">Manage and track your legal cases</p>
-                          </Card>
-                          <Card className="p-6 hover:shadow-xl transition-shadow cursor-pointer border-2 hover:border-purple-500">
-                            <BookOpen className="h-8 w-8 text-purple-600 mb-3" />
-                            <h3 className="font-semibold mb-2">Legal Research Pro</h3>
-                            <p className="text-sm text-muted-foreground">Advanced legal research tools</p>
-                          </Card>
-                          <Card className="p-6 hover:shadow-xl transition-shadow cursor-pointer border-2 hover:border-blue-500">
-                            <Shield className="h-8 w-8 text-blue-600 mb-3" />
-                            <h3 className="font-semibold mb-2">Client Portal</h3>
-                            <p className="text-sm text-muted-foreground">Secure client communication</p>
-                          </Card>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Enhanced Service Cards */}
-                      <div className="w-full max-w-6xl">
-                        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-6 flex items-center justify-center gap-2">
-                          <Sparkles className="h-4 w-4" />
-                          How can I help you today?
-                        </h3>
+                  {/* Enhanced Service Cards */}
+                  <div className="w-full max-w-6xl">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-6 flex items-center justify-center gap-2">
+                      <Sparkles className="h-4 w-4" />
+                      How can I help you today?
+                    </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {/* Column 1 */}
                       <div className="space-y-3">
@@ -809,10 +760,8 @@ export default function Home() {
                       </div>
                     </div>
 
-                        
-                      </div>
-                    </>
-                  )}
+                    
+                  </div>
                 </SignedIn>
               </div>
             ) : (

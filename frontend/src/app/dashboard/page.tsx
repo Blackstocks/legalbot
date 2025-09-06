@@ -3,9 +3,11 @@
 import { useUser } from "@clerk/nextjs";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
 
 export default function Dashboard() {
   const { isLoaded, isSignedIn, user } = useUser();
+  const router = useRouter();
 
   if (!isLoaded) {
     return (
@@ -37,6 +39,7 @@ export default function Dashboard() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Recent Documents</CardTitle>
+                  <button onClick={() => router.push('/dashboard/add-document')}>Add Document</button>
                 </CardHeader>
                 <CardContent>
                   <p className="text-muted-foreground text-sm">No documents yet</p>
