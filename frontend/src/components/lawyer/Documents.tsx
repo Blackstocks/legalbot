@@ -47,6 +47,8 @@ import {
   Unlock,
   Star,
   StarOff,
+  Grid3X3,
+  List,
 } from "lucide-react";
 
 interface Document {
@@ -170,6 +172,7 @@ export default function Documents() {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
 
   const filteredDocuments = documents.filter((doc) => {
     const matchesSearch = 
@@ -228,13 +231,34 @@ export default function Documents() {
           <h1 className="text-3xl font-bold">Documents Management</h1>
           <p className="text-muted-foreground mt-1">Organize and manage all your legal documents</p>
         </div>
-        <Button 
-          className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-          onClick={() => setShowUploadDialog(true)}
-        >
-          <Upload className="h-4 w-4 mr-2" />
-          Upload Document
-        </Button>
+        <div className="flex items-center gap-3">
+          {/* View Toggle */}
+          <div className="flex items-center border rounded-lg p-1">
+            <Button
+              size="sm"
+              variant={viewMode === "list" ? "default" : "ghost"}
+              onClick={() => setViewMode("list")}
+              className="h-8 w-8 p-0"
+            >
+              <List className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant={viewMode === "grid" ? "default" : "ghost"}
+              onClick={() => setViewMode("grid")}
+              className="h-8 w-8 p-0"
+            >
+              <Grid3X3 className="h-4 w-4" />
+            </Button>
+          </div>
+          <Button 
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+            onClick={() => setShowUploadDialog(true)}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Document
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -293,7 +317,7 @@ export default function Documents() {
             <SelectTrigger className="w-full md:w-48">
               <SelectValue placeholder="Filter by category" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg">
               <SelectItem value="all">All Categories</SelectItem>
               <SelectItem value="contracts">Contracts</SelectItem>
               <SelectItem value="pleadings">Pleadings</SelectItem>
@@ -307,7 +331,7 @@ export default function Documents() {
             <SelectTrigger className="w-full md:w-48">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg">
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="draft">Draft</SelectItem>
               <SelectItem value="final">Final</SelectItem>
@@ -317,7 +341,7 @@ export default function Documents() {
         </div>
       </Card>
 
-      {/* Documents Grid with Drag and Drop */}
+      {/* Documents Display with Drag and Drop */}
       <div
         className={`border-2 border-dashed rounded-lg p-6 transition-colors ${
           dragActive
@@ -329,111 +353,217 @@ export default function Documents() {
         onDragOver={handleDrag}
         onDrop={handleDrop}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredDocuments.map((document) => {
-            const Icon = getFileIcon(document.type);
-            return (
-              <Card 
-                key={document.id} 
-                className="p-4 hover:shadow-lg transition-shadow cursor-pointer"
-                onClick={() => setSelectedDocument(document)}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-3 rounded-lg bg-gradient-to-r ${
+        {viewMode === "list" ? (
+          /* List View */
+          <div className="space-y-2">
+            {filteredDocuments.map((document) => {
+              const Icon = getFileIcon(document.type);
+              return (
+                <Card 
+                  key={document.id} 
+                  className="p-4 hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => setSelectedDocument(document)}
+                >
+                  <div className="flex items-center gap-4">
+                    {/* File Icon */}
+                    <div className={`p-2 rounded-lg bg-gradient-to-r ${
                       document.category === "contracts" ? "from-blue-500 to-blue-600" :
                       document.category === "pleadings" ? "from-purple-500 to-purple-600" :
                       document.category === "evidence" ? "from-green-500 to-green-600" :
                       document.category === "research" ? "from-orange-500 to-orange-600" :
                       "from-gray-500 to-gray-600"
                     }`}>
-                      <Icon className="h-5 w-5 text-white" />
+                      <Icon className="h-4 w-4 text-white" />
                     </div>
+
+                    {/* Document Info */}
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate text-sm">{document.name}</p>
-                      <p className="text-xs text-muted-foreground">{document.size}</p>
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-medium truncate">{document.name}</p>
+                        {document.isConfidential && (
+                          <Lock className="h-3 w-3 text-red-500" />
+                        )}
+                        {document.isFavorite && (
+                          <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <span>{document.size}</span>
+                        {document.caseNumber && (
+                          <span>Case: {document.caseNumber}</span>
+                        )}
+                        {document.clientName && (
+                          <span>Client: {document.clientName}</span>
+                        )}
+                        <span>Modified: {document.modifiedDate}</span>
+                      </div>
+                    </div>
+
+                    {/* Status and Tags */}
+                    <div className="flex items-center gap-2">
+                      <Badge 
+                        className={
+                          document.status === "draft" ? "bg-yellow-100 text-yellow-800" :
+                          document.status === "final" ? "bg-green-100 text-green-800" :
+                          "bg-gray-100 text-gray-800"
+                        }
+                      >
+                        {document.status}
+                      </Badge>
+                      {document.tags.slice(0, 2).map((tag, index) => (
+                        <Badge key={index} variant="secondary" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                      {document.tags.length > 2 && (
+                        <Badge variant="secondary" className="text-xs">
+                          +{document.tags.length - 2}
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFavorite(document.id);
+                        }}
+                      >
+                        {document.isFavorite ? (
+                          <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                        ) : (
+                          <StarOff className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <Button size="sm" variant="outline">
+                        <Eye className="h-3 w-3 mr-1" />
+                        View
+                      </Button>
+                      <Button size="sm" variant="outline">
+                        <Download className="h-3 w-3 mr-1" />
+                        Download
+                      </Button>
+                      <Button size="icon" variant="outline" className="h-8 w-8">
+                        <Share2 className="h-3 w-3" />
+                      </Button>
                     </div>
                   </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFavorite(document.id);
-                    }}
-                  >
-                    {document.isFavorite ? (
-                      <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                    ) : (
-                      <StarOff className="h-4 w-4" />
+                </Card>
+              );
+            })}
+          </div>
+        ) : (
+          /* Grid View */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredDocuments.map((document) => {
+              const Icon = getFileIcon(document.type);
+              return (
+                <Card 
+                  key={document.id} 
+                  className="p-4 hover:shadow-lg transition-shadow cursor-pointer"
+                  onClick={() => setSelectedDocument(document)}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-3 rounded-lg bg-gradient-to-r ${
+                        document.category === "contracts" ? "from-blue-500 to-blue-600" :
+                        document.category === "pleadings" ? "from-purple-500 to-purple-600" :
+                        document.category === "evidence" ? "from-green-500 to-green-600" :
+                        document.category === "research" ? "from-orange-500 to-orange-600" :
+                        "from-gray-500 to-gray-600"
+                      }`}>
+                        <Icon className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate text-sm">{document.name}</p>
+                        <p className="text-xs text-muted-foreground">{document.size}</p>
+                      </div>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite(document.id);
+                      }}
+                    >
+                      {document.isFavorite ? (
+                        <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                      ) : (
+                        <StarOff className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2 mb-3">
+                    {document.caseNumber && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <FolderOpen className="h-3 w-3" />
+                        <span>Case: {document.caseNumber}</span>
+                      </div>
                     )}
-                  </Button>
-                </div>
-
-                <div className="space-y-2 mb-3">
-                  {document.caseNumber && (
+                    {document.clientName && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <User className="h-3 w-3" />
+                        <span>{document.clientName}</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <FolderOpen className="h-3 w-3" />
-                      <span>Case: {document.caseNumber}</span>
+                      <Calendar className="h-3 w-3" />
+                      <span>Modified: {document.modifiedDate}</span>
                     </div>
-                  )}
-                  {document.clientName && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <User className="h-3 w-3" />
-                      <span>{document.clientName}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    <span>Modified: {document.modifiedDate}</span>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2 mb-3">
-                  <Badge 
-                    className={
-                      document.status === "draft" ? "bg-yellow-100 text-yellow-800" :
-                      document.status === "final" ? "bg-green-100 text-green-800" :
-                      "bg-gray-100 text-gray-800"
-                    }
-                  >
-                    {document.status}
-                  </Badge>
-                  {document.isConfidential && (
-                    <Badge className="bg-red-100 text-red-800">
-                      <Lock className="h-3 w-3 mr-1" />
-                      Confidential
+                  <div className="flex items-center gap-2 mb-3">
+                    <Badge 
+                      className={
+                        document.status === "draft" ? "bg-yellow-100 text-yellow-800" :
+                        document.status === "final" ? "bg-green-100 text-green-800" :
+                        "bg-gray-100 text-gray-800"
+                      }
+                    >
+                      {document.status}
                     </Badge>
-                  )}
-                </div>
+                    {document.isConfidential && (
+                      <Badge className="bg-red-100 text-red-800">
+                        <Lock className="h-3 w-3 mr-1" />
+                        Confidential
+                      </Badge>
+                    )}
+                  </div>
 
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {document.tags.map((tag, index) => (
-                    <Badge key={index} variant="secondary" className="text-xs">
-                      <Tag className="h-2 w-2 mr-1" />
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {document.tags.map((tag, index) => (
+                      <Badge key={index} variant="secondary" className="text-xs">
+                        <Tag className="h-2 w-2 mr-1" />
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
 
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="flex-1">
-                    <Eye className="h-3 w-3 mr-1" />
-                    View
-                  </Button>
-                  <Button size="sm" variant="outline" className="flex-1">
-                    <Download className="h-3 w-3 mr-1" />
-                    Download
-                  </Button>
-                  <Button size="icon" variant="outline" className="h-8 w-8">
-                    <Share2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1">
+                      <Eye className="h-3 w-3 mr-1" />
+                      View
+                    </Button>
+                    <Button size="sm" variant="outline" className="flex-1">
+                      <Download className="h-3 w-3 mr-1" />
+                      Download
+                    </Button>
+                    <Button size="icon" variant="outline" className="h-8 w-8">
+                      <Share2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
 
         {filteredDocuments.length === 0 && (
           <div className="text-center py-12">
@@ -445,7 +575,7 @@ export default function Documents() {
 
       {/* Upload Dialog */}
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-xl">
           <DialogHeader>
             <DialogTitle>Upload Document</DialogTitle>
             <DialogDescription>
@@ -468,7 +598,7 @@ export default function Documents() {
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg">
                     <SelectItem value="contracts">Contracts</SelectItem>
                     <SelectItem value="pleadings">Pleadings</SelectItem>
                     <SelectItem value="correspondence">Correspondence</SelectItem>
