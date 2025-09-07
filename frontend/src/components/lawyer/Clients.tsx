@@ -144,6 +144,7 @@ export default function Clients() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [showNewClientDialog, setShowNewClientDialog] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
 
   const filteredClients = clients.filter((client) => {
     const matchesSearch = 
@@ -175,22 +176,52 @@ export default function Clients() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Clients Management</h1>
-          <p className="text-muted-foreground mt-1">Manage your client relationships and information</p>
+          <p className="text-muted-foreground mt-1">
+            Manage your client relationships and information
+          </p>
         </div>
+        <Button
+  onClick={() => setShowNewClientDialog(true)}
+  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+>
+  <Plus className="h-4 w-4 mr-2" />
+  New Client
+</Button>
+  
+        {/* New Client Dialog */}
         <Dialog open={showNewClientDialog} onOpenChange={setShowNewClientDialog}>
-          <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
-              <Plus className="h-4 w-4 mr-2" />
-              New Client
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          {/* New Client Button */}
+
+
+{/* New Client Dialog */}
+<Dialog open={showNewClientDialog} onOpenChange={setShowNewClientDialog}>
+  <DialogContent className="max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700">
+    <DialogHeader>
+      <DialogTitle className="text-2xl font-semibold">Add New Client</DialogTitle>
+      <DialogDescription>
+        Enter the details for the new client below.
+      </DialogDescription>
+    </DialogHeader>
+
+    {/* Form fields go here */}
+
+    <DialogFooter>
+      <Button variant="outline" onClick={() => setShowNewClientDialog(false)}>Cancel</Button>
+      <Button onClick={() => setShowNewClientDialog(false)}>Add Client</Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+
+  
+          <DialogContent className="max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700">
             <DialogHeader>
-              <DialogTitle>Add New Client</DialogTitle>
+              <DialogTitle className="text-2xl font-semibold">Add New Client</DialogTitle>
               <DialogDescription>
                 Enter the details for the new client below.
               </DialogDescription>
             </DialogHeader>
+  
+            {/* --- Form Fields --- */}
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -199,7 +230,7 @@ export default function Clients() {
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white dark:bg-gray-900 rounded-md shadow-lg border border-gray-200 dark:border-gray-700">
                       <SelectItem value="individual">Individual</SelectItem>
                       <SelectItem value="corporate">Corporate</SelectItem>
                     </SelectContent>
@@ -210,6 +241,7 @@ export default function Clients() {
                   <Input placeholder="Enter name" className="mt-1" />
                 </div>
               </div>
+  
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Email</label>
@@ -220,25 +252,27 @@ export default function Clients() {
                   <Input placeholder="(555) 123-4567" className="mt-1" />
                 </div>
               </div>
+  
               <div>
                 <label className="text-sm font-medium">Address</label>
                 <Input placeholder="Street address, City, State ZIP" className="mt-1" />
               </div>
+  
               <div>
                 <label className="text-sm font-medium">Notes</label>
-                <textarea 
+                <textarea
                   className="w-full mt-1 p-3 border rounded-md min-h-[100px]"
                   placeholder="Additional notes about the client..."
                 />
               </div>
             </div>
+  
+            {/* --- Footer --- */}
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowNewClientDialog(false)}>
                 Cancel
               </Button>
-              <Button onClick={() => setShowNewClientDialog(false)}>
-                Add Client
-              </Button>
+              <Button onClick={() => setShowNewClientDialog(false)}>Add Client</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -286,38 +320,44 @@ export default function Clients() {
 
       {/* Filters and Search */}
       <Card className="p-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Search clients by name, email, phone..."
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-full md:w-48">
-              <SelectValue placeholder="Filter by type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="individual">Individual</SelectItem>
-              <SelectItem value="corporate">Corporate</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full md:w-48">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </Card>
+  <div className="flex flex-col md:flex-row gap-4">
+    {/* Search box */}
+    <div className="flex-1 relative">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+      <Input
+        placeholder="Search clients by name, email, phone..."
+        className="pl-10 focus:ring-2 focus:ring-indigo-500"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+      />
+    </div>
+
+    {/* Type filter */}
+    <Select value={typeFilter} onValueChange={setTypeFilter}>
+      <SelectTrigger className="w-full md:w-48 hover:border-indigo-500">
+        <SelectValue placeholder="Filter by type" />
+      </SelectTrigger>
+      <SelectContent className="bg-white dark:bg-gray-900 rounded-md shadow-lg border border-gray-200 dark:border-gray-700">
+        <SelectItem value="all">All Types</SelectItem>
+        <SelectItem value="individual">Individual</SelectItem>
+        <SelectItem value="corporate">Corporate</SelectItem>
+      </SelectContent>
+    </Select>
+
+    {/* Status filter */}
+    <Select value={statusFilter} onValueChange={setStatusFilter}>
+      <SelectTrigger className="w-full md:w-48 hover:border-indigo-500">
+        <SelectValue placeholder="Filter by status" />
+      </SelectTrigger>
+      <SelectContent className="bg-white dark:bg-gray-900 rounded-md shadow-lg border border-gray-200 dark:border-gray-700">
+        <SelectItem value="all">All Status</SelectItem>
+        <SelectItem value="active">Active</SelectItem>
+        <SelectItem value="inactive">Inactive</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+</Card>
+
 
       {/* Clients Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -383,14 +423,17 @@ export default function Clients() {
             </div>
 
             <div className="mt-4 flex gap-2">
-              <Button size="sm" variant="outline" className="flex-1">
-                <Eye className="h-4 w-4 mr-1" />
-                View
-              </Button>
-              <Button size="sm" variant="outline" className="flex-1">
-                <Edit className="h-4 w-4 mr-1" />
-                Edit
-              </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1"
+              onClick={(e) => {e.stopPropagation(); // stops it from opening the details dialog
+                setEditingClient(client); // open edit dialog with this client
+              }}
+>
+              <Edit className="h-4 w-4 mr-1" />
+              Edit
+            </Button>
             </div>
           </Card>
         ))}
@@ -399,9 +442,9 @@ export default function Clients() {
       {/* Client Details Dialog */}
       {selectedClient && (
         <Dialog open={!!selectedClient} onOpenChange={() => setSelectedClient(null)}>
-          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-2xl shadow-2xl">
             <DialogHeader>
-              <DialogTitle>Client Details</DialogTitle>
+              <DialogTitle className="text-xl font-semibold">Client Details</DialogTitle>
             </DialogHeader>
             <Tabs defaultValue="overview" className="mt-4">
               <TabsList className="grid w-full grid-cols-4">
@@ -516,6 +559,101 @@ export default function Clients() {
           </DialogContent>
         </Dialog>
       )}
+      {/* Client Details edit Dialog */}
+      {editingClient && (
+  <Dialog open={!!editingClient} onOpenChange={() => setEditingClient(null)}>
+    <DialogContent className="max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl">
+      <DialogHeader>
+        <DialogTitle>Edit Client</DialogTitle>
+        <DialogDescription>
+          Update details for {editingClient.name}.
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="grid gap-4 py-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-medium">Client Type</label>
+            <Select
+              value={editingClient.type}
+              onValueChange={(val) =>
+                setEditingClient({ ...editingClient, type: val as "individual" | "corporate" })
+              }
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-white dark:bg-gray-900">
+                <SelectItem value="individual">Individual</SelectItem>
+                <SelectItem value="corporate">Corporate</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-sm font-medium">Full Name / Company</label>
+            <Input
+              value={editingClient.name}
+              onChange={(e) =>
+                setEditingClient({ ...editingClient, name: e.target.value })
+              }
+              className="mt-1"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-medium">Email</label>
+            <Input
+              type="email"
+              value={editingClient.email}
+              onChange={(e) =>
+                setEditingClient({ ...editingClient, email: e.target.value })
+              }
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium">Phone</label>
+            <Input
+              value={editingClient.phone}
+              onChange={(e) =>
+                setEditingClient({ ...editingClient, phone: e.target.value })
+              }
+              className="mt-1"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="text-sm font-medium">Address</label>
+          <Input
+            value={editingClient.address}
+            onChange={(e) =>
+              setEditingClient({ ...editingClient, address: e.target.value })
+            }
+            className="mt-1"
+          />
+        </div>
+      </div>
+
+      <DialogFooter>
+        <Button variant="outline" onClick={() => setEditingClient(null)}>
+          Cancel
+        </Button>
+        <Button
+          onClick={() => {
+            setClients((prev) =>
+              prev.map((c) => (c.id === editingClient.id ? editingClient : c))
+            );
+            setEditingClient(null);
+          }}
+        >
+          Save Changes
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+)}
+
     </div>
   );
 }
