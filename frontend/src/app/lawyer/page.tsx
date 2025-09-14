@@ -11,6 +11,7 @@ import Dashboard from "@/components/lawyer/Dashboard";
 import Cases from "@/components/lawyer/Cases";
 import Clients from "@/components/lawyer/Clients";
 import Documents from "@/components/lawyer/Documents";
+import Kanban from "@/components/lawyer/Kanban";
 import {
   Briefcase,
   Users,
@@ -68,13 +69,7 @@ export default function LawyerPage() {
       case "documents":
         return <Documents />;
       case "calendar":
-        return (
-          <div className="text-center py-12">
-            <Calendar className="h-24 w-24 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-2">Calendar</h2>
-            <p className="text-muted-foreground">Calendar feature coming soon</p>
-          </div>
-        );
+        return <Kanban />;
       case "analytics":
         return (
           <div className="text-center py-12">
